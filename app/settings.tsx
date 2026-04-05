@@ -1,178 +1,156 @@
-import * as Localization from 'expo-localization'; // 💡 追加
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads'; // 💡 広告を追加
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useSQLiteContext } from 'expo-sqlite';
 import { THEME_COLORS, useTheme } from '../constants/ThemeContext';
 import { TRANSLATIONS } from '../constants/translations';
 
+type ThemeColorKey = keyof typeof THEME_COLORS;
+
+// 💡 広告IDの設定
+const adUnitId = __DEV__ ? TestIds.BANNER : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ID || '');
+
 export default function SettingsScreen() {
   const router = useRouter();
-  const { themeColor, setThemeColor } = useTheme();
+  const db = useSQLiteContext();
+  const { themeColor, setThemeColor, lang, toggleLang } = useTheme();
+  const t = TRANSLATIONS[lang]; 
 
-  // 💡 OSの言語設定を取得して初期表示を決定
-  const deviceLanguage = Localization.getLocales()[0].languageCode;
-  const initialLang = deviceLanguage?.includes('zh') ? 'CN' : 'JP';
-  
-  // 他の画面と同様、翻訳オブジェクトを取得
-  const t = TRANSLATIONS[initialLang]; 
+  const themeKeys = Object.keys(THEME_COLORS) as ThemeColorKey[];
+
+  const handleExportMemos = async () => {
+    try {
+      const memos = await db.getAllAsync<{ title: string, text: string }>(
+        'SELECT p.title, m.text FROM memos m JOIN poems p ON m.poem_id = p.id WHERE m.text != ""'
+      );
+      
+      if (memos.length === 0) {
+        Alert.alert(t.infoTitle, t.noMemoToExport);
+        return;
+      }
+
+      const exportText = memos.map(m => `【${m.title}】\n${m.text}\n`).join('\n---\n\n');
+      await Share.share({ message: exportText });
+    } catch (error) {
+      console.error("Export error:", error);
+      Alert.alert(t.errorTitle, t.exportError);
+    }
+  };
+
+  const handleDeleteAllMemos = () => {
+    Alert.alert(
+      t.confirmTitle,
+      t.deleteConfirmText,
+      [
+        { text: t.cancelBtn, style: 'cancel' },
+        { 
+          text: t.deleteBtn, 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await db.runAsync('DELETE FROM memos');
+              Alert.alert(t.completeTitle, t.deleteCompleteText);
+            } catch (error) {
+              console.error("Delete error:", error);
+              Alert.alert(t.errorTitle, t.deleteError);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* ヘッダーエリア */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{t.settings}</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-          {/* 現在のテーマカラーが閉じるボタンに反映されます */}
-          <Text style={[styles.closeBtnText, { color: themeColor }]}>{t.close}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* テーマカラー選択セクション */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t.themeColor}</Text>
-        <View style={styles.colorPalette}>
-          {(Object.keys(THEME_COLORS) as Array<keyof typeof THEME_COLORS>).map((key) => {
-            const colorHex = THEME_COLORS[key];
-            const isSelected = themeColor === colorHex;
-            
-            return (
-              <TouchableOpacity
-                key={key}
-                activeOpacity={0.8}
-                style={[
-                  styles.colorCircle,
-                  { backgroundColor: colorHex },
-                  isSelected && { borderColor: '#202124', borderWidth: 3 } // 選択中の枠線
-                ]}
-                onPress={() => setThemeColor(key)}
-              >
-                {isSelected && <Text style={styles.checkMark}>✓</Text>}
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      {/* 💡 ScrollViewをViewで囲み、最下部に広告を配置する構造 */}
+      <View style={{ flex: 1 }}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <Text style={styles.title}>{t.settings}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={toggleLang} style={[styles.langBtn, { backgroundColor: themeColor }]}>
+                <Text style={styles.langBtnText}>{t.langToggle}</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* メニューセクション */}
-      <View style={styles.section}>
-        <TouchableOpacity 
-          activeOpacity={0.7}
-          style={styles.menuItem}
-          onPress={() => router.push('/about')}
-        >
-          <View style={styles.menuItemLeft}>
-            <Text style={styles.menuItemEmoji}>ℹ️</Text>
-            <Text style={styles.menuItemText}>{t.aboutApp}</Text>
+              <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+                <Text style={[styles.closeBtnText, { color: themeColor }]}>{t.close}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t.aboutTop}</Text>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => {
+                router.back(); 
+                setTimeout(() => router.push('/about'), 100); 
+              }}
+            >
+              <Text style={styles.menuText}>{t.aboutApp}</Text>
+              <Text style={styles.menuIcon}>ℹ️</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t.themeColor}</Text>
+            <View style={styles.colorPalette}>
+              {themeKeys.map((colorKey) => {
+                const hexCode = THEME_COLORS[colorKey];
+                return (
+                  <TouchableOpacity key={colorKey} style={[styles.colorCircle, { backgroundColor: hexCode }]} onPress={() => setThemeColor(colorKey)}>
+                    {themeColor === hexCode && <Text style={styles.checkMark}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t.dataManagement}</Text>
+            <TouchableOpacity style={styles.menuItem} onPress={handleExportMemos}>
+              <Text style={styles.menuText}>{t.exportMemo}</Text>
+              <Text style={styles.menuIcon}>→</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.menuItem, { marginTop: 12 }]} onPress={handleDeleteAllMemos}>
+              <Text style={[styles.menuText, { color: '#E74C3C' }]}>{t.deleteAllMemos}</Text>
+              <Text style={styles.menuIcon}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ height: 40 }} />
+        </ScrollView>
       </View>
 
-      {/* フッター（コピーライトなど） */}
-      <Text style={styles.footerText}>{t.copyright}</Text>
-    </ScrollView>
+      {/* 💡 広告バナーを最下部に配置 */}
+      <View style={styles.adContainer}>
+        <BannerAd 
+          unitId={adUnitId} 
+          size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} 
+          requestOptions={{ requestNonPersonalizedAdsOnly: true }} 
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#F5F7FA', 
-    paddingHorizontal: 20 
-  },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginTop: 20, 
-    marginBottom: 30 
-  },
-  title: { 
-    fontSize: 28, 
-    fontWeight: 'bold', 
-    color: '#202124' 
-  },
-  closeBtn: { 
-    paddingVertical: 8, 
-    paddingHorizontal: 4 
-  },
-  closeBtnText: { 
-    fontSize: 17, 
-    fontWeight: '600' 
-  },
-  section: { 
-    marginBottom: 32 
-  },
-  sectionTitle: { 
-    fontSize: 14, 
-    fontWeight: 'bold', 
-    color: '#5F6368', 
-    marginBottom: 12, 
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1
-  },
-  colorPalette: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: 16, 
-    backgroundColor: '#FFF', 
-    padding: 20, 
-    borderRadius: 20,
-    // 軽いシャドウで浮かせる
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2
-  },
-  colorCircle: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 24, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-  },
-  checkMark: { 
-    color: '#FFF', 
-    fontSize: 22, 
-    fontWeight: 'bold' 
-  },
-  menuItem: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    backgroundColor: '#FFF', 
-    padding: 20, 
-    borderRadius: 20, 
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2
-  },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  menuItemEmoji: {
-    fontSize: 20,
-    marginRight: 12
-  },
-  menuItemText: { 
-    fontSize: 17, 
-    color: '#202124', 
-    fontWeight: '500' 
-  },
-  chevron: { 
-    fontSize: 24, 
-    color: '#BDBDBD',
-    fontWeight: '300'
-  },
-  footerText: {
-    textAlign: 'center',
-    color: '#BDC1C6',
-    fontSize: 12,
-    marginTop: 20,
-    marginBottom: 40
-  }
+  safeArea: { flex: 1, backgroundColor: '#FDFBF7' },
+  container: { flex: 1, padding: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30, marginTop: 10 },
+  title: { fontSize: 28, fontWeight: '900', color: '#202124' },
+  langBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 12 },
+  langBtnText: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
+  closeBtn: { padding: 8, backgroundColor: '#FFF', borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  closeBtnText: { fontSize: 16, fontWeight: 'bold' },
+  section: { marginBottom: 30 },
+  sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#5F6368', marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 },
+  colorPalette: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, backgroundColor: '#FFF', padding: 20, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  colorCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
+  checkMark: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
+  menuItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFF', padding: 20, borderRadius: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  menuText: { fontSize: 16, fontWeight: '600', color: '#202124' },
+  menuIcon: { fontSize: 18, color: '#9AA0A6' },
+  adContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', backgroundColor: '#FDFBF7' }, // 💡 追加
 });

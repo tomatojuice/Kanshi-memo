@@ -1,5 +1,3 @@
-// constants/translations.ts
-
 export const TRANSLATIONS = {
   JP: {
     // --- メイン画面 ---
@@ -7,7 +5,7 @@ export const TRANSLATIONS = {
     searchPlaceholder: "作者、時代、タイトル、メモで検索...",
     recordedPoems: "収録詩: ",
     counterUnit: " 首",
-    langToggle: "🇨🇳 CN",
+    langToggle: "🇨🇳 中文",
 
     // --- 作者詳細 ---
     biography: "作者紹介",
@@ -18,17 +16,21 @@ export const TRANSLATIONS = {
     memoTitle: "マイメモ",
     memoPlaceholder: "この詩の感想や覚え書きを残す...",
     saveBtn: "保存する",
+    savingText: "保存中...",
     saveSuccess: "保存しました！ 📌",
     saveError: "保存に失敗しました",
     unknownError: "不明なエラー",
 
     // --- 設定モーダル ---
     settings: "設定",
-    aboutApp: "このアプリについて",
+    aboutApp: "アプリ情報",
     themeColor: "テーマカラー",
     close: "閉じる",
+    dataManagement: "データ管理",
+    exportMemo: "マイメモを出力",
+    deleteAllMemos: "すべてのメモを削除",
 
-    // --- About画面 (2015年版リソースを継承) ---
+    // --- About画面 ---
     versionLabel: "バージョン",
     unknownVersion: "不明",
     developer: "開発: ratolab",
@@ -40,10 +42,24 @@ export const TRANSLATIONS = {
     description1: "・厳選された名作漢詩をオフラインで閲覧可能",
     description2: "・OSの言語設定に合わせた日本語・中国語の自動切替",
     description3: "・自分だけの解釈を書き込める「マイメモ」機能搭載",
-
-    // 💡 今回追加した項目
     appTitle: "必読漢詩集",
     features: "アプリの特徴",
+    linkTitle: "関連リンク",
+    websiteLink: "公式サイト (Web版)",
+    privacyPolicyLink: "プライバシーポリシー",
+
+    // --- アラート・システム文言 ---
+    infoTitle: "お知らせ",
+    noMemoToExport: "出力するメモがありません。",
+    exportError: "メモの出力に失敗しました。",
+    confirmTitle: "確認",
+    deleteConfirmText: "本当にすべてのマイメモを削除しますか？\nこの操作は取り消せません。",
+    cancelBtn: "キャンセル",
+    deleteBtn: "削除する",
+    completeTitle: "完了",
+    deleteCompleteText: "すべてのメモを削除しました。",
+    deleteError: "削除に失敗しました。",
+    errorTitle: "エラー",
   },
   CN: {
     // --- 主界面 ---
@@ -51,7 +67,7 @@ export const TRANSLATIONS = {
     searchPlaceholder: "搜索作者、时代、诗名、笔记...",
     recordedPoems: "收录诗: ",
     counterUnit: " 首",
-    langToggle: "🇯🇵 JP",
+    langToggle: "🇯🇵 日本語",
 
     // --- 作者详情 ---
     biography: "作者简介",
@@ -62,15 +78,19 @@ export const TRANSLATIONS = {
     memoTitle: "我的笔记",
     memoPlaceholder: "记录对此诗的感悟...",
     saveBtn: "保存",
+    savingText: "保存中...",
     saveSuccess: "保存成功！ 📌",
     saveError: "保存失败",
     unknownError: "未知错误",
 
     // --- 设置 ---
     settings: "设置",
-    aboutApp: "关于应用",
+    aboutApp: "应用信息",
     themeColor: "主题颜色",
     close: "关闭",
+    dataManagement: "数据管理",
+    exportMemo: "导出我的笔记",
+    deleteAllMemos: "删除所有笔记",
 
     // --- 关于页面 ---
     versionLabel: "版本",
@@ -84,9 +104,23 @@ export const TRANSLATIONS = {
     description1: "・离线阅读精选名作汉诗",
     description2: "・根据系统语言自动切换中日双语",
     description3: "・内置“我的笔记”功能，记录您的独到见解",
-
-    // 💡 今回追加した項目（中国語版）
     appTitle: "必读汉诗集",
     features: "应用特点",
+    linkTitle: "相关链接",
+    websiteLink: "官方网站 (Web版)",
+    privacyPolicyLink: "隐私政策",
+
+    // --- アラート・系统提示 ---
+    infoTitle: "提示",
+    noMemoToExport: "没有可导出的笔记。",
+    exportError: "导出失败。",
+    confirmTitle: "确认",
+    deleteConfirmText: "确定要删除所有笔记吗？\n此操作无法撤销。",
+    cancelBtn: "取消",
+    deleteBtn: "删除",
+    completeTitle: "完成",
+    deleteCompleteText: "已删除所有笔记。",
+    deleteError: "删除失败。",
+    errorTitle: "错误",
   }
 };

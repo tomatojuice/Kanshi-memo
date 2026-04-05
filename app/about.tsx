@@ -1,126 +1,116 @@
-// app/about.tsx
 import Constants from 'expo-constants';
-import * as Localization from 'expo-localization';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // 💡 Linking を追加
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads'; // 💡 広告ライブラリを追加
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useTheme } from '../constants/ThemeContext';
 import { TRANSLATIONS } from '../constants/translations';
 
+const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL || '';
+const OFFICIAL_WEBSITE_URL = process.env.EXPO_PUBLIC_OFFICIAL_WEBSITE_URL || '';
+
+// 💡 .envから広告IDを読み込み
+const adUnitId = __DEV__ ? TestIds.BANNER : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ID || '');
+
 export default function AboutScreen() {
-  const { themeColor } = useTheme();
-  
-  const deviceLanguage = Localization.getLocales()[0].languageCode;
-  const initialLang = deviceLanguage?.includes('zh') ? 'CN' : 'JP';
-  
-  const [lang, setLang] = useState<'JP' | 'CN'>(initialLang); 
+  const { themeColor, lang, toggleLang } = useTheme();
   const t = TRANSLATIONS[lang];
 
-  const version = Constants.expoConfig?.version 
-               ?? Constants.nativeAppVersion 
-               ?? t.unknownVersion;
+  const version = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? t.unknownVersion;
 
-  // 💡 プライバシーポリシーを開く関数
-  const openPrivacyPolicy = () => {
-    // 💡 さっき公開したFirebase HostingのURL
-    Linking.openURL('https://kanshi-syu.web.app/privacy.html');
+  const openLink = (url: string) => {
+    if (url) {
+      Linking.openURL(url).catch((err) => console.error("URLを開けませんでした:", err));
+    }
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <Stack.Screen 
         options={{ 
           title: t.aboutApp,
           headerRight: () => (
-            <TouchableOpacity 
-              style={styles.headerLangToggle}
-              onPress={() => setLang(lang === 'JP' ? 'CN' : 'JP')}
-            >
-              <Text style={styles.headerLangText}>
-                {lang === 'JP' ? '🇯🇵 JP' : '🇨🇳 CN'}
-              </Text>
+            <TouchableOpacity style={styles.headerLangBtn} onPress={toggleLang}>
+              <Text style={styles.headerLangText}>{t.langToggle}</Text>
             </TouchableOpacity>
-          ),
+          )
         }} 
       />
+      
+      {/* 💡 ScrollViewをViewで囲み、広告と分離する */}
+      <View style={{ flex: 1 }}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
+            <View style={[styles.logoPlaceholder, { backgroundColor: themeColor }]}>
+              <Text style={styles.logoText}>詩</Text>
+            </View>
+            <Text style={styles.appName}>{t.appTitle}</Text>
+            <Text style={styles.version}>{t.versionLabel} {version}</Text>
 
-      <View style={styles.content}>
-        <View style={[styles.logoPlaceholder, { backgroundColor: themeColor }]}>
-          <Text style={styles.logoText}>詩</Text>
-        </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t.aboutTop}</Text>
+              <Text style={styles.description}>{t.aboutText}</Text>
+            </View>
 
-        <Text style={styles.appName}>{t.appTitle}</Text>
-        <Text style={styles.version}>Version {version}</Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t.developer}</Text>
+              <Text style={styles.description}>{t.copyright}</Text>
+            </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.features}</Text>
-          <Text style={styles.description}>{t.description1}</Text>
-          <Text style={styles.description}>{t.description2}</Text>
-          <Text style={styles.description}>{t.description3}</Text>
-        </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t.linkTitle}</Text>
+              
+              <TouchableOpacity onPress={() => openLink(OFFICIAL_WEBSITE_URL)} style={styles.linkCard} activeOpacity={0.7}>
+                <View style={styles.linkCardContent}>
+                  <Text style={styles.linkIcon}>🌐</Text>
+                  <Text style={styles.linkText}>{t.websiteLink}</Text>
+                </View>
+                <Text style={styles.chevron}>→</Text>
+              </TouchableOpacity>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.developer}</Text>
-          <Text style={styles.description}>ratolab</Text>
-        </View>
-
-        {/* 💡 プライバシーポリシーへのリンク */}
-        <TouchableOpacity style={styles.linkButton} onPress={openPrivacyPolicy}>
-          <Text style={[styles.linkText, { color: themeColor }]}>
-            {lang === 'JP' ? 'プライバシーポリシー' : '隐私政策'}
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={styles.copyright}>{t.copyright}</Text>
+              <TouchableOpacity onPress={() => openLink(PRIVACY_POLICY_URL)} style={styles.linkCard} activeOpacity={0.7}>
+                <View style={styles.linkCardContent}>
+                  <Text style={styles.linkIcon}>🔒</Text>
+                  <Text style={styles.linkText}>{t.privacyPolicyLink}</Text>
+                </View>
+                <Text style={styles.chevron}>→</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ height: 40 }} />
+          </View>
+        </ScrollView>
       </View>
-    </ScrollView>
+
+      {/* 💡 広告バナーを最下部に配置 */}
+      <View style={styles.adContainer}>
+        <BannerAd 
+          unitId={adUnitId} 
+          size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} 
+          requestOptions={{ requestNonPersonalizedAdsOnly: true }} 
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  headerLangToggle: { 
-    backgroundColor: 'rgba(255,255,255,0.2)', 
-    paddingHorizontal: 12, 
-    paddingVertical: 6, 
-    borderRadius: 20, 
-    marginRight: 10 
-  },
-  headerLangText: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
-  
+  safeArea: { flex: 1, backgroundColor: '#FDFBF7' },
+  container: { flex: 1 },
+  headerLangBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 10 },
+  headerLangText: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
   content: { padding: 20, alignItems: 'center' },
-  logoPlaceholder: { 
-    width: 80, height: 80, borderRadius: 20, 
-    justifyContent: 'center', alignItems: 'center', 
-    marginBottom: 12, elevation: 3,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, shadowRadius: 4,
-  },
+  logoPlaceholder: { width: 80, height: 80, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   logoText: { fontSize: 40, color: '#FFF', fontWeight: 'bold' },
   appName: { fontSize: 22, fontWeight: 'bold', color: '#202124', marginBottom: 4 },
   version: { fontSize: 13, color: '#9AA0A6', marginBottom: 30 },
-  
   section: { width: '100%', marginBottom: 25 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#202124', marginBottom: 10 },
-  description: { fontSize: 15, color: '#5F6368', lineHeight: 24, marginBottom: 8 },
-
-  // 💡 リンクボタンのスタイル
-  linkButton: {
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 20,
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 2, elevation: 2,
-  },
-  linkText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-
-  copyright: { fontSize: 12, color: '#9AA0A6', marginTop: 20 }
+  description: { fontSize: 15, color: '#5F6368', lineHeight: 24 },
+  linkCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 18, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  linkCardContent: { flexDirection: 'row', alignItems: 'center' },
+  linkIcon: { fontSize: 20, marginRight: 12 },
+  linkText: { fontSize: 15, fontWeight: '600', color: '#4A4D51' },
+  chevron: { fontSize: 18, color: '#BDBDBD', fontWeight: 'bold' },
+  adContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', backgroundColor: '#FDFBF7' }, // 💡 追加
 });

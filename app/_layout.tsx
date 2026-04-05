@@ -1,24 +1,23 @@
-// app/_layout.tsx
 import { Stack } from 'expo-router';
 import { SQLiteDatabase, SQLiteProvider } from 'expo-sqlite';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import mobileAds from 'react-native-google-mobile-ads';
+// 💡 1. スプラッシュスクリーンのライブラリをインポート
+import * as SplashScreen from 'expo-splash-screen';
 
-// 💡 テーマコンテキストとデータの読み込み
 import { ThemeProvider, useTheme } from '../constants/ThemeContext';
 import { KANSHI_DATA } from '../constants/kanshiData';
+
+// 💡 2. アプリが起動した瞬間、勝手にスプラッシュ画面が消えるのを阻止する
+SplashScreen.preventAutoHideAsync();
 
 type PoemData = { title: string; content: string; translation: string; explanation_cn: string; };
 type AuthorData = { name: string; phonetic: string; pinyin: string; era: string; introduction: string; introduction_cn: string; poems: PoemData[]; };
 
-/**
- * 💡 データベースの初期化
- * アプリ起動時に1度だけ実行されます。
- */
 async function initializeDatabase(db: SQLiteDatabase) {
   console.log('🔄 データベースの状態を確認中...');
 
-  // 1. 各テーブルを「なければ作る」 (DROPはしません)
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS authors (
       id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -36,30 +35,28 @@ async function initializeDatabase(db: SQLiteDatabase) {
       content TEXT NOT NULL, 
       translation TEXT NOT NULL, 
       explanation_cn TEXT NOT NULL, 
-      FOREIGN KEY (author_id) REFERENCES authors (id)
+      FOREIGN KEY (author_id) REFERENCES authors (id) ON DELETE CASCADE
     );
-    CREATE TABLE IF NOT EXISTS user_memos (
-      poem_id INTEGER PRIMARY KEY, 
-      memo TEXT NOT NULL, 
-      updated_at TEXT NOT NULL, 
-      FOREIGN KEY (poem_id) REFERENCES poems (id)
+    CREATE TABLE IF NOT EXISTS memos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      poem_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (poem_id) REFERENCES poems (id) ON DELETE CASCADE
     );
   `);
 
-  // 2. 作者が1人もいない（＝アプリ初回起動）場合のみ、初期データを流し込む
-  const authorCount = await db.getFirstAsync<{count: number}>('SELECT COUNT(*) as count FROM authors');
-  
-  if (authorCount && authorCount.count === 0) {
-    console.log('📥 初期データを投入中...');
+  const existingAuthors = await db.getAllAsync('SELECT id FROM authors LIMIT 1');
+  if (existingAuthors.length === 0) {
+    console.log('📦 初回起動: JSONデータをSQLiteに投入します...');
     
-    for (const author of (KANSHI_DATA as AuthorData[])) {
-      const authorResult = await db.runAsync(
+    for (const author of KANSHI_DATA) {
+      const result = await db.runAsync(
         'INSERT INTO authors (name, phonetic, pinyin, era, introduction, introduction_cn) VALUES (?, ?, ?, ?, ?, ?)',
-        [author.name || '', author.phonetic || '', author.pinyin || '', author.era || '', author.introduction || '', author.introduction_cn || '']
+        [author.name, author.phonetic, author.pinyin, author.era, author.introduction, author.introduction_cn || '']
       );
-      
-      const authorId = authorResult.lastInsertRowId;
-      
+      const authorId = result.lastInsertRowId;
+
       for (const poem of author.poems) {
         await db.runAsync(
           'INSERT INTO poems (author_id, title, content, translation, explanation_cn) VALUES (?, ?, ?, ?, ?)',
@@ -73,12 +70,21 @@ async function initializeDatabase(db: SQLiteDatabase) {
   }
 }
 
-/**
- * 💡 ナビゲーションの構成
- * テーマカラーをヘッダーに連動させます。
- */
 function StackLayout() {
-  const { themeColor } = useTheme();
+  // 💡 3. コンテキストから isLoaded (設定の読み込み完了フラグ) も受け取る
+  const { themeColor, isLoaded } = useTheme();
+
+  // 💡 4. テーマや言語の準備が完全に終わったら、スプラッシュ画面をフワッと消す
+  useEffect(() => {
+    if (isLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoaded]);
+
+  // isLoaded が false の間は、何も描画しない（スプラッシュ画面を見せ続ける）
+  if (!isLoaded) {
+    return null; 
+  }
 
   return (
     <Stack 
@@ -95,7 +101,7 @@ function StackLayout() {
         name="settings" 
         options={{ 
           presentation: 'modal',
-          animation: 'slide_from_bottom', // 下からぬるっと出てくる
+          animation: 'slide_from_bottom',
           headerShown: false 
         }} 
       />
@@ -103,21 +109,22 @@ function StackLayout() {
   );
 }
 
-/**
- * 💡 アプリのルート
- */
 export default function RootLayout() {
+  useEffect(() => {
+    mobileAds()
+      .initialize()
+      .then(adapterStatuses => {
+        console.log('AdMob Initialized', adapterStatuses);
+      });
+  }, []);
+
   return (
     <Suspense fallback={
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#1A73E8" />
       </View>
     }>
-      <SQLiteProvider 
-        databaseName="kanshi_app_v1.db"
-        onInit={initializeDatabase}
-        useSuspense
-      >
+      <SQLiteProvider databaseName="kanshi.db" onInit={initializeDatabase}>
         <ThemeProvider>
           <StackLayout />
         </ThemeProvider>
