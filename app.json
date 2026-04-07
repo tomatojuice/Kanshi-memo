@@ -10,11 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "jp.ne.tomatojuice.kanshimemo"
+      "bundleIdentifier": "com.ratolab.kanshi"
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
-      "package": "jp.ne.tomatojuice.kanshimemo",
+      "package": "com.ratolab.kanshi",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
