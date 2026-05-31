@@ -2,14 +2,14 @@ import { Stack, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import {
-  FlatList, KeyboardAvoidingView, Platform, SectionList,
+  KeyboardAvoidingView, Platform, SectionList,
   StyleSheet, Text, TextInput,
   TouchableOpacity, View
 } from 'react-native';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { globalStyles } from '../constants/globalStyles'; // 💡 共通スタイルをインポート
+import { globalStyles } from '../constants/globalStyles';
 import { useTheme } from '../constants/ThemeContext';
 import { TRANSLATIONS } from '../constants/translations';
 
@@ -30,6 +30,8 @@ export default function HomeScreen() {
   const [authors, setAuthors] = useState<Author[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('ALL');
+  // 💡 開閉状態を管理するステート（アコーディオン用）
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const router = useRouter();
   
   const { themeColor, lang, toggleLang } = useTheme();
@@ -38,6 +40,11 @@ export default function HomeScreen() {
   useEffect(() => {
     loadAuthors();
   }, [searchQuery]);
+
+  // 💡 タブが切り替わったらアコーディオンを一旦リセットする
+  useEffect(() => {
+    setExpandedSections({});
+  }, [activeTab]);
 
   const loadAuthors = async () => {
     try {
@@ -71,7 +78,12 @@ export default function HomeScreen() {
   };
 
   const getSectionedData = () => {
-    if (activeTab === 'ERA') {
+    // 検索窓に文字が入っている時は、見やすくするために全て強制展開する
+    const isSearchActive = !!searchQuery;
+
+    if (activeTab === 'ALL') {
+      return [{ title: 'ALL', data: authors }]; // ALLタブ用
+    } else if (activeTab === 'ERA') {
       const eraOrder = ['古代', '先秦', '漢', '魏晋南北朝', '東晋', '北朝', '唐', '五代', '宋', '北宋', '南宋', '金', '元', '明', '清', '近代'];
       const grouped = authors.reduce((acc, author) => {
         const era = author.era || '不明';
@@ -86,16 +98,17 @@ export default function HomeScreen() {
           const idxB = eraOrder.indexOf(b);
           return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
         })
-        .map(era => ({ title: era, data: grouped[era] }));
+        // 💡 展開されていない時はデータを空配列にする（アコーディオンの魔法）
+        .map(era => ({ title: era, data: (isSearchActive || expandedSections[era]) ? grouped[era] : [] }));
     } else if (activeTab === 'AUTHOR') {
+      let grouped: Record<string, Author[]> = {};
       if (lang === 'CN') {
-        const grouped = authors.reduce((acc, author) => {
+        grouped = authors.reduce((acc, author) => {
           const firstLetter = author.pinyin ? author.pinyin.charAt(0).toUpperCase() : '#';
           if (!acc[firstLetter]) acc[firstLetter] = [];
           acc[firstLetter].push(author);
           return acc;
         }, {} as Record<string, Author[]>);
-        return Object.keys(grouped).sort().map(letter => ({ title: letter, data: grouped[letter] }));
       } else {
         const getGyo = (kana: string) => {
           if (!kana) return 'その他';
@@ -112,24 +125,24 @@ export default function HomeScreen() {
           if ('わをん'.includes(c)) return 'わ行';
           return 'その他';
         };
-        const grouped = authors.reduce((acc, author) => {
+        grouped = authors.reduce((acc, author) => {
           const gyo = getGyo(author.phonetic);
           if (!acc[gyo]) acc[gyo] = [];
           acc[gyo].push(author);
           return acc;
         }, {} as Record<string, Author[]>);
-        
-        const gyoOrder = ['あ行', 'か行', 'さ行', 'た行', 'な行', 'は行', 'ま行', 'や行', 'ら行', 'わ行', 'その他'];
-        return Object.keys(grouped)
-          .sort((a, b) => gyoOrder.indexOf(a) - gyoOrder.indexOf(b))
-          .map(gyo => ({ title: gyo, data: grouped[gyo] }));
       }
+      
+      const gyoOrder = ['あ行', 'か行', 'さ行', 'た行', 'な行', 'は行', 'ま行', 'や行', 'ら行', 'わ行', 'その他'];
+      return Object.keys(grouped)
+        .sort((a, b) => lang === 'CN' ? a.localeCompare(b) : (gyoOrder.indexOf(a) - gyoOrder.indexOf(b)))
+        // 💡 展開されていない時はデータを空配列にする
+        .map(title => ({ title, data: (isSearchActive || expandedSections[title]) ? grouped[title] : [] }));
     }
     return [];
   };
 
   const renderItem = ({ item }: { item: Author }) => (
-    // 💡 globalStyles.cardBase を適用
     <TouchableOpacity style={[globalStyles.cardBase, styles.cardSpacing]} onPress={() => router.push(`/author/${item.id}`)} activeOpacity={0.7}>
       <View style={styles.header}>
         <View style={[styles.eraBadge, { backgroundColor: hexToRgba(themeColor, 0.1) }]}>
@@ -152,14 +165,26 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
-    <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionHeaderText, { color: themeColor }]}>{title}</Text>
-    </View>
-  );
+  // 💡 アコーディオン式に生まれ変わった見出し部分
+  const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => {
+    if (title === 'ALL') return null; // ALLタブの時は見出しを隠す
+
+    const isExpanded = !!searchQuery || expandedSections[title];
+
+    return (
+      <TouchableOpacity 
+        style={styles.sectionHeader} 
+        onPress={() => setExpandedSections(prev => ({ ...prev, [title]: !prev[title] }))}
+        activeOpacity={0.6}
+      >
+        <Text style={[styles.sectionHeaderText, { color: themeColor }]}>{title}</Text>
+        {/* 開閉状態を示すアイコン */}
+        <Text style={[styles.accordionIcon, { color: themeColor }]}>{isExpanded ? '▼' : '▶'}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    // 💡 globalStyles.safeArea を適用
     <SafeAreaView style={globalStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <KeyboardAvoidingView style={globalStyles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack.Screen 
@@ -196,24 +221,16 @@ export default function HomeScreen() {
         </View>
         
         <View style={globalStyles.flex1}>
-          {activeTab === 'ALL' ? (
-            <FlatList
-              data={authors}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={renderItem}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            <SectionList
-              sections={getSectionedData()}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={renderItem}
-              renderSectionHeader={renderSectionHeader}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
+          {/* 💡 FlatListを廃止し、すべてSectionListに統一してブレを撲滅！ */}
+          <SectionList
+            sections={getSectionedData()}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            stickySectionHeadersEnabled={false}
+          />
           
           <View style={[styles.searchContainer, { backgroundColor: themeColor }]}>
             <View style={styles.searchBox}>
@@ -223,7 +240,6 @@ export default function HomeScreen() {
           </View>
         </View>
         
-        {/* 💡 globalStyles.adContainer を適用 */}
         <View style={globalStyles.adContainer}>
           <BannerAd unitId={adUnitId} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} requestOptions={{ requestNonPersonalizedAdsOnly: true }} />
         </View>
@@ -236,12 +252,16 @@ const styles = StyleSheet.create({
   tabContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8, backgroundColor: '#FDFBF7' },
   tabButton: { flex: 1, paddingVertical: 8, borderRadius: 20, alignItems: 'center', backgroundColor: '#F1F3F4' },
   tabText: { fontSize: 13, fontWeight: 'bold', color: '#5F6368' },
-  sectionHeader: { backgroundColor: '#FDFBF7', paddingVertical: 8, marginBottom: 8, marginTop: 4 },
+  
+  // 💡 アコーディオン見出しのスタイル
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginBottom: 8, marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
   sectionHeaderText: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+  accordionIcon: { fontSize: 14, fontWeight: 'bold' },
+  
   listContent: { padding: 16, paddingBottom: 100 },
   settingsBtn: { paddingHorizontal: 10, paddingVertical: 2 },
   settingsBtnText: { fontSize: 26, fontWeight: 'bold', color: '#FFF', lineHeight: 28 },
-  cardSpacing: { padding: 20, marginBottom: 16 }, // 💡 cardBase に追加するマージン・パディング
+  cardSpacing: { padding: 20, marginBottom: 16 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   eraBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginRight: 12 },
   eraText: { fontSize: 13, fontWeight: 'bold' },

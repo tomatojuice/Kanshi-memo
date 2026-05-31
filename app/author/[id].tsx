@@ -21,7 +21,7 @@ const hexToRgba = (hex: string, alpha: number) => {
 };
 
 export default function AuthorDetailScreen() {
-  const { id2 } = useLocalSearchParams();
+  const { id } = useLocalSearchParams();
   const db = useSQLiteContext();
   const router = useRouter();
   const { themeColor, lang, toggleLang } = useTheme();
@@ -33,13 +33,13 @@ export default function AuthorDetailScreen() {
 
   useEffect(() => {
     loadAuthorData();
-  }, [id2]);
+  }, [id]); 
 
   const loadAuthorData = async () => {
     try {
-      const authorResult = await db.getFirstAsync<Author>('SELECT * FROM authors WHERE id = ?', [Number(id2)]);
+      const authorResult = await db.getFirstAsync<Author>('SELECT * FROM authors WHERE id = ?', [Number(id)]);
       setAuthor(authorResult);
-      const poemsResult = await db.getAllAsync<Poem>('SELECT id, title FROM poems WHERE author_id = ? ORDER BY id ASC', [Number(id2)]);
+      const poemsResult = await db.getAllAsync<Poem>('SELECT id, title FROM poems WHERE author_id = ? ORDER BY id ASC', [Number(id)]);
       setPoems(poemsResult);
     } catch (error) {
       console.error("データの読み込みエラー:", error);
@@ -73,7 +73,7 @@ export default function AuthorDetailScreen() {
       
       <View style={globalStyles.flex1}>
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-
+          
           <View style={[globalStyles.cardBase, styles.bioCardSpacing]}>
             <View style={styles.nameHeader}>
               <View style={[styles.eraBadge, { backgroundColor: hexToRgba(themeColor, 0.1) }]}>
