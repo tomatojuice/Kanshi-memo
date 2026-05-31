@@ -1,15 +1,15 @@
 import { useRouter } from 'expo-router';
 import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads'; // 💡 広告を追加
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSQLiteContext } from 'expo-sqlite';
+import { globalStyles } from '../constants/globalStyles';
 import { THEME_COLORS, useTheme } from '../constants/ThemeContext';
 import { TRANSLATIONS } from '../constants/translations';
 
 type ThemeColorKey = keyof typeof THEME_COLORS;
 
-// 💡 広告IDの設定
 const adUnitId = __DEV__ ? TestIds.BANNER : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ID || '');
 
 export default function SettingsScreen() {
@@ -63,9 +63,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      {/* 💡 ScrollViewをViewで囲み、最下部に広告を配置する構造 */}
-      <View style={{ flex: 1 }}>
+    <SafeAreaView style={globalStyles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      <View style={globalStyles.flex1}>
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.title}>{t.settings}</Text>
@@ -82,20 +81,20 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t.aboutTop}</Text>
             <TouchableOpacity 
-              style={styles.menuItem} 
+              style={[globalStyles.cardBase, styles.menuItem]} 
               onPress={() => {
                 router.back(); 
                 setTimeout(() => router.push('/about'), 100); 
               }}
             >
               <Text style={styles.menuText}>{t.aboutApp}</Text>
-              <Text style={styles.menuIcon}>ℹ️</Text>
+              <Text style={globalStyles.chevron}>→</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t.themeColor}</Text>
-            <View style={styles.colorPalette}>
+            <View style={[globalStyles.cardBase, styles.colorPalette]}>
               {themeKeys.map((colorKey) => {
                 const hexCode = THEME_COLORS[colorKey];
                 return (
@@ -109,12 +108,12 @@ export default function SettingsScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t.dataManagement}</Text>
-            <TouchableOpacity style={styles.menuItem} onPress={handleExportMemos}>
+            <TouchableOpacity style={[globalStyles.cardBase, styles.menuItem]} onPress={handleExportMemos}>
               <Text style={styles.menuText}>{t.exportMemo}</Text>
-              <Text style={styles.menuIcon}>→</Text>
+              <Text style={globalStyles.chevron}>→</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.menuItem, { marginTop: 12 }]} onPress={handleDeleteAllMemos}>
+            <TouchableOpacity style={[globalStyles.cardBase, styles.menuItem, { marginTop: 12 }]} onPress={handleDeleteAllMemos}>
               <Text style={[styles.menuText, { color: '#E74C3C' }]}>{t.deleteAllMemos}</Text>
               <Text style={styles.menuIcon}>🗑️</Text>
             </TouchableOpacity>
@@ -123,8 +122,7 @@ export default function SettingsScreen() {
         </ScrollView>
       </View>
 
-      {/* 💡 広告バナーを最下部に配置 */}
-      <View style={styles.adContainer}>
+      <View style={globalStyles.adContainer}>
         <BannerAd 
           unitId={adUnitId} 
           size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} 
@@ -136,7 +134,6 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FDFBF7' },
   container: { flex: 1, padding: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30, marginTop: 10 },
   title: { fontSize: 28, fontWeight: '900', color: '#202124' },
@@ -146,11 +143,10 @@ const styles = StyleSheet.create({
   closeBtnText: { fontSize: 16, fontWeight: 'bold' },
   section: { marginBottom: 30 },
   sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#5F6368', marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 },
-  colorPalette: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, backgroundColor: '#FFF', padding: 20, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  colorPalette: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, padding: 20, borderRadius: 20 },
   colorCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
   checkMark: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
-  menuItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFF', padding: 20, borderRadius: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  menuItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderRadius: 20, alignItems: 'center' },
   menuText: { fontSize: 16, fontWeight: '600', color: '#202124' },
   menuIcon: { fontSize: 18, color: '#9AA0A6' },
-  adContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', backgroundColor: '#FDFBF7' }, // 💡 追加
 });

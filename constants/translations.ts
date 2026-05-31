@@ -6,6 +6,9 @@ export const TRANSLATIONS = {
     recordedPoems: "収録詩: ",
     counterUnit: " 首",
     langToggle: "🇨🇳 中文",
+    tabAll: 'すべて',
+    tabEra: '時代別',
+    tabAuthor: '作者別',
 
     // --- 作者詳細 ---
     biography: "作者紹介",
@@ -68,6 +71,9 @@ export const TRANSLATIONS = {
     recordedPoems: "收录诗: ",
     counterUnit: " 首",
     langToggle: "🇯🇵 日本語",
+    tabAll: '全部',
+    tabEra: '按时代',
+    tabAuthor: '按作者',
 
     // --- 作者详情 ---
     biography: "作者简介",

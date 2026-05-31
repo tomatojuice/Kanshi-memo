@@ -1,16 +1,16 @@
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
 import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads'; // 💡 広告ライブラリを追加
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { globalStyles } from '../constants/globalStyles';
 import { useTheme } from '../constants/ThemeContext';
 import { TRANSLATIONS } from '../constants/translations';
 
 const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL || '';
 const OFFICIAL_WEBSITE_URL = process.env.EXPO_PUBLIC_OFFICIAL_WEBSITE_URL || '';
 
-// 💡 .envから広告IDを読み込み
 const adUnitId = __DEV__ ? TestIds.BANNER : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ID || '');
 
 export default function AboutScreen() {
@@ -26,21 +26,20 @@ export default function AboutScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={globalStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <Stack.Screen 
         options={{ 
           title: t.aboutApp,
           headerRight: () => (
-            <TouchableOpacity style={styles.headerLangBtn} onPress={toggleLang}>
-              <Text style={styles.headerLangText}>{t.langToggle}</Text>
+            <TouchableOpacity style={globalStyles.headerLangBtn} onPress={toggleLang}>
+              <Text style={globalStyles.headerLangText}>{t.langToggle}</Text>
             </TouchableOpacity>
           )
         }} 
       />
       
-      {/* 💡 ScrollViewをViewで囲み、広告と分離する */}
-      <View style={{ flex: 1 }}>
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={globalStyles.flex1}>
+        <ScrollView style={globalStyles.flex1} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
             <View style={[styles.logoPlaceholder, { backgroundColor: themeColor }]}>
               <Text style={styles.logoText}>詩</Text>
@@ -61,20 +60,21 @@ export default function AboutScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t.linkTitle}</Text>
               
-              <TouchableOpacity onPress={() => openLink(OFFICIAL_WEBSITE_URL)} style={styles.linkCard} activeOpacity={0.7}>
+              {/* 💡 共通の cardBase を適用して余白などを個別に設定 */}
+              <TouchableOpacity onPress={() => openLink(OFFICIAL_WEBSITE_URL)} style={[globalStyles.cardBase, styles.linkCardSpacing]} activeOpacity={0.7}>
                 <View style={styles.linkCardContent}>
                   <Text style={styles.linkIcon}>🌐</Text>
                   <Text style={styles.linkText}>{t.websiteLink}</Text>
                 </View>
-                <Text style={styles.chevron}>→</Text>
+                <Text style={globalStyles.chevron}>→</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => openLink(PRIVACY_POLICY_URL)} style={styles.linkCard} activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => openLink(PRIVACY_POLICY_URL)} style={[globalStyles.cardBase, styles.linkCardSpacing]} activeOpacity={0.7}>
                 <View style={styles.linkCardContent}>
                   <Text style={styles.linkIcon}>🔒</Text>
                   <Text style={styles.linkText}>{t.privacyPolicyLink}</Text>
                 </View>
-                <Text style={styles.chevron}>→</Text>
+                <Text style={globalStyles.chevron}>→</Text>
               </TouchableOpacity>
             </View>
             <View style={{ height: 40 }} />
@@ -82,8 +82,8 @@ export default function AboutScreen() {
         </ScrollView>
       </View>
 
-      {/* 💡 広告バナーを最下部に配置 */}
-      <View style={styles.adContainer}>
+      {/* 共通の広告コンテナスタイルを適用 */}
+      <View style={globalStyles.adContainer}>
         <BannerAd 
           unitId={adUnitId} 
           size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} 
@@ -95,10 +95,6 @@ export default function AboutScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FDFBF7' },
-  container: { flex: 1 },
-  headerLangBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 10 },
-  headerLangText: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
   content: { padding: 20, alignItems: 'center' },
   logoPlaceholder: { width: 80, height: 80, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   logoText: { fontSize: 40, color: '#FFF', fontWeight: 'bold' },
@@ -107,10 +103,8 @@ const styles = StyleSheet.create({
   section: { width: '100%', marginBottom: 25 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#202124', marginBottom: 10 },
   description: { fontSize: 15, color: '#5F6368', lineHeight: 24 },
-  linkCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 18, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  linkCardSpacing: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, marginBottom: 12 },
   linkCardContent: { flexDirection: 'row', alignItems: 'center' },
   linkIcon: { fontSize: 20, marginRight: 12 },
   linkText: { fontSize: 15, fontWeight: '600', color: '#4A4D51' },
-  chevron: { fontSize: 18, color: '#BDBDBD', fontWeight: 'bold' },
-  adContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', backgroundColor: '#FDFBF7' }, // 💡 追加
 });

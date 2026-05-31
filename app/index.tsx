@@ -2,17 +2,19 @@ import { Stack, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import {
-  FlatList, KeyboardAvoidingView, Platform,
+  FlatList, KeyboardAvoidingView, Platform, SectionList,
   StyleSheet, Text, TextInput,
   TouchableOpacity, View
 } from 'react-native';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { globalStyles } from '../constants/globalStyles'; // 💡 共通スタイルをインポート
 import { useTheme } from '../constants/ThemeContext';
 import { TRANSLATIONS } from '../constants/translations';
 
 type Author = { id: number; name: string; phonetic: string; pinyin: string; era: string; introduction: string; introduction_cn: string; poem_count: number; };
+type TabType = 'ALL' | 'ERA' | 'AUTHOR';
 
 const hexToRgba = (hex: string, alpha: number) => {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -27,6 +29,7 @@ export default function HomeScreen() {
   const db = useSQLiteContext();
   const [authors, setAuthors] = useState<Author[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<TabType>('ALL');
   const router = useRouter();
   
   const { themeColor, lang, toggleLang } = useTheme();
@@ -38,7 +41,6 @@ export default function HomeScreen() {
 
   const loadAuthors = async () => {
     try {
-      // 💡 memos テーブルを結合し、メモの本文 (m.text) からも検索可能にする！
       let query = `
         SELECT a.id, a.name, a.phonetic, a.pinyin, a.era, a.introduction, a.introduction_cn, COUNT(DISTINCT p.id) as poem_count 
         FROM authors a 
@@ -68,8 +70,67 @@ export default function HomeScreen() {
     }
   };
 
+  const getSectionedData = () => {
+    if (activeTab === 'ERA') {
+      const eraOrder = ['古代', '先秦', '漢', '魏晋南北朝', '東晋', '北朝', '唐', '五代', '宋', '北宋', '南宋', '金', '元', '明', '清', '近代'];
+      const grouped = authors.reduce((acc, author) => {
+        const era = author.era || '不明';
+        if (!acc[era]) acc[era] = [];
+        acc[era].push(author);
+        return acc;
+      }, {} as Record<string, Author[]>);
+      
+      return Object.keys(grouped)
+        .sort((a, b) => {
+          const idxA = eraOrder.indexOf(a);
+          const idxB = eraOrder.indexOf(b);
+          return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
+        })
+        .map(era => ({ title: era, data: grouped[era] }));
+    } else if (activeTab === 'AUTHOR') {
+      if (lang === 'CN') {
+        const grouped = authors.reduce((acc, author) => {
+          const firstLetter = author.pinyin ? author.pinyin.charAt(0).toUpperCase() : '#';
+          if (!acc[firstLetter]) acc[firstLetter] = [];
+          acc[firstLetter].push(author);
+          return acc;
+        }, {} as Record<string, Author[]>);
+        return Object.keys(grouped).sort().map(letter => ({ title: letter, data: grouped[letter] }));
+      } else {
+        const getGyo = (kana: string) => {
+          if (!kana) return 'その他';
+          const c = kana.charAt(0);
+          if ('あいうえお'.includes(c)) return 'あ行';
+          if ('かきくけこがぎぐげご'.includes(c)) return 'か行';
+          if ('さしすせそざじずぜぞ'.includes(c)) return 'さ行';
+          if ('たちつてとだぢづでど'.includes(c)) return 'た行';
+          if ('なにぬねの'.includes(c)) return 'な行';
+          if ('はひふへほばびぶべぼぱぴぷぺぽ'.includes(c)) return 'は行';
+          if ('まみむめも'.includes(c)) return 'ま行';
+          if ('やゆよ'.includes(c)) return 'や行';
+          if ('らりるれろ'.includes(c)) return 'ら行';
+          if ('わをん'.includes(c)) return 'わ行';
+          return 'その他';
+        };
+        const grouped = authors.reduce((acc, author) => {
+          const gyo = getGyo(author.phonetic);
+          if (!acc[gyo]) acc[gyo] = [];
+          acc[gyo].push(author);
+          return acc;
+        }, {} as Record<string, Author[]>);
+        
+        const gyoOrder = ['あ行', 'か行', 'さ行', 'た行', 'な行', 'は行', 'ま行', 'や行', 'ら行', 'わ行', 'その他'];
+        return Object.keys(grouped)
+          .sort((a, b) => gyoOrder.indexOf(a) - gyoOrder.indexOf(b))
+          .map(gyo => ({ title: gyo, data: grouped[gyo] }));
+      }
+    }
+    return [];
+  };
+
   const renderItem = ({ item }: { item: Author }) => (
-    <TouchableOpacity style={styles.card} onPress={() => router.push(`/author/${item.id}`)} activeOpacity={0.7}>
+    // 💡 globalStyles.cardBase を適用
+    <TouchableOpacity style={[globalStyles.cardBase, styles.cardSpacing]} onPress={() => router.push(`/author/${item.id}`)} activeOpacity={0.7}>
       <View style={styles.header}>
         <View style={[styles.eraBadge, { backgroundColor: hexToRgba(themeColor, 0.1) }]}>
           <Text style={[styles.eraText, { color: themeColor }]}>{item.era}</Text>
@@ -84,23 +145,30 @@ export default function HomeScreen() {
       </Text>
       <View style={styles.footer}>
         <Text style={styles.poemCount}>
-          <Text style={[styles.poemCountNumber, { color: themeColor }]}>{item.poem_count}</Text>{t.counterUnit}
+          <Text style={[styles.poemCountNumber, { color: themeColor }]}>{item.poem_count}</Text>{t.counterUnit || '首'}
         </Text>
-        <Text style={styles.chevron}>→</Text>
+        <Text style={globalStyles.chevron}>→</Text> 
       </View>
     </TouchableOpacity>
   );
 
+  const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={[styles.sectionHeaderText, { color: themeColor }]}>{title}</Text>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    // 💡 globalStyles.safeArea を適用
+    <SafeAreaView style={globalStyles.safeArea} edges={['left', 'right', 'bottom']}>
+      <KeyboardAvoidingView style={globalStyles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack.Screen 
           options={{ 
             title: t.appTitle,
             headerRight: () => (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity onPress={toggleLang} style={styles.langBtn}>
-                  <Text style={styles.langBtnText}>{t.langToggle}</Text>
+                <TouchableOpacity onPress={toggleLang} style={globalStyles.headerLangBtn}>
+                  <Text style={globalStyles.headerLangText}>{t.langToggle}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
                   <Text style={styles.settingsBtnText}>⋮</Text>
@@ -109,15 +177,44 @@ export default function HomeScreen() {
             ),
           }} 
         />
+
+        <View style={styles.tabContainer}>
+          {(['ALL', 'ERA', 'AUTHOR'] as const).map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <TouchableOpacity 
+                key={tab} 
+                style={[styles.tabButton, isActive && { backgroundColor: themeColor }]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.tabText, isActive && { color: '#FFF' }]}>
+                  {tab === 'ALL' ? (t.tabAll || 'すべて') : tab === 'ERA' ? (t.tabEra || '時代別') : (t.tabAuthor || '作者別')}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
         
-        <View style={{ flex: 1 }}>
-          <FlatList
-            data={authors}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
+        <View style={globalStyles.flex1}>
+          {activeTab === 'ALL' ? (
+            <FlatList
+              data={authors}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderItem}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <SectionList
+              sections={getSectionedData()}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderItem}
+              renderSectionHeader={renderSectionHeader}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+          
           <View style={[styles.searchContainer, { backgroundColor: themeColor }]}>
             <View style={styles.searchBox}>
               <Text style={styles.searchIcon}>🔍</Text>
@@ -126,7 +223,8 @@ export default function HomeScreen() {
           </View>
         </View>
         
-        <View style={styles.adContainer}>
+        {/* 💡 globalStyles.adContainer を適用 */}
+        <View style={globalStyles.adContainer}>
           <BannerAd unitId={adUnitId} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} requestOptions={{ requestNonPersonalizedAdsOnly: true }} />
         </View>
       </KeyboardAvoidingView>
@@ -135,14 +233,15 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FDFBF7' },
-  container: { flex: 1 },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8, backgroundColor: '#FDFBF7' },
+  tabButton: { flex: 1, paddingVertical: 8, borderRadius: 20, alignItems: 'center', backgroundColor: '#F1F3F4' },
+  tabText: { fontSize: 13, fontWeight: 'bold', color: '#5F6368' },
+  sectionHeader: { backgroundColor: '#FDFBF7', paddingVertical: 8, marginBottom: 8, marginTop: 4 },
+  sectionHeaderText: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   listContent: { padding: 16, paddingBottom: 100 },
-  langBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 10 },
-  langBtnText: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
   settingsBtn: { paddingHorizontal: 10, paddingVertical: 2 },
   settingsBtnText: { fontSize: 26, fontWeight: 'bold', color: '#FFF', lineHeight: 28 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
+  cardSpacing: { padding: 20, marginBottom: 16 }, // 💡 cardBase に追加するマージン・パディング
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   eraBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginRight: 12 },
   eraText: { fontSize: 13, fontWeight: 'bold' },
@@ -153,10 +252,8 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F1F3F4', paddingTop: 12 },
   poemCount: { fontSize: 13, color: '#5F6368', fontWeight: '500' },
   poemCountNumber: { fontWeight: 'bold', fontSize: 15 },
-  chevron: { fontSize: 24, color: '#BDBDBD', lineHeight: 24 },
   searchContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 16, paddingTop: 16, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 10 },
   searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 12, height: 48 },
   searchIcon: { fontSize: 18, marginRight: 8 },
   searchInput: { flex: 1, fontSize: 16, color: '#202124' },
-  adContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', backgroundColor: '#FDFBF7' },
 });
